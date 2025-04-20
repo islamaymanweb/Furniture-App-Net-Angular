@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 
 namespace Ecom.Core.Services
 {
-    //public interface IGenerateToken
-    //{
-    //    string GetAndCreateToken(AppUser user);
-    //}
+    public interface IGenerateToken
+    {
+        string GetAndCreateToken(AppUser user);
+    }
 }

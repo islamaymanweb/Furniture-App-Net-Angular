@@ -9,11 +9,13 @@ using System.Threading.Tasks;
 
 namespace Ecom.infrastructure.Data.Config
 {
-    public class PhotoConfiguration : IEntityTypeConfiguration<Photo>
-    {
-        public void Configure(EntityTypeBuilder<Photo> builder)
+  
+        public class PhotoConfiguration : IEntityTypeConfiguration<Photo>
         {
-            builder.HasData(new Photo { Id = 3, ImageName = "test", ProductId = 1 });
+            public void Configure(EntityTypeBuilder<Photo> builder)
+            {
+                builder.HasData(new Photo { Id = 3, ImageName = "test", ProductId = 1 });
+            }
         }
-    }
+    
 }

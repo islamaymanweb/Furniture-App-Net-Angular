@@ -7,8 +7,8 @@ using System.Threading.Tasks;
 
 namespace Ecom.Core.Services
 {
-    //public interface IEmailService
-    //{
-    //    Task SendEmail(EmailDTO emailDTO);
-    //}
+    public interface IEmailService
+    {
+        Task SendEmail(EmailDTO emailDTO);
+    }
 }

@@ -18,25 +18,52 @@ namespace Ecom.API.Controllers
         {
             this.service = service;
         }
+        //[HttpGet("get-all")]
+        //public async Task<IActionResult> get([FromQuery] ProductParams productParams)
+        //{
+        //    try
+        //    {
+        //        var Product = await work.productRepositry
+        //            .GetAllAsync(productParams);
+
+        //        return Ok(new Pagination<ProductDTO>(productParams.PageNumber, productParams.pageSize, productParams.TotatlCount, Product));
+        //    }
+        //    catch (Exception ex)
+        //    {
+
+        //        return BadRequest(ex.Message);
+        //    }
+        //}
         [HttpGet("get-all")]
-        public async Task<IActionResult> get([FromQuery] ProductParams productParams)
+        public async Task<IActionResult> GetAllProducts([FromQuery] ProductParams productParams)
         {
             try
             {
-                var Product = await work.productRepositry
-                    .GetAllAsync(productParams);
+                var products = await work.productRepositry.GetAllAsync(productParams);
 
-                return Ok(new Pagination<ProductDTO>(productParams.PageNumber, productParams.pageSize, productParams.TotatlCount, Product));
+                // التأكد من أن TotalCount تم تعبئته بشكل صحيح
+                if (productParams.TotalCount == 0 && products.Any())
+                {
+                    productParams.TotalCount = products.Count();
+                }
+
+                return Ok(new Pagination<ProductDTO>(
+                    productParams.PageNumber,
+                    productParams.PageSize,
+                    productParams.TotalCount,
+                    products));
             }
             catch (Exception ex)
             {
-
-                return BadRequest(ex.Message);
+                // تسجيل الخطأ ثم إرجاع رسالة عامة
+                // logger.LogError(ex, "Error getting products");
+                return BadRequest("حدث خطأ أثناء جلب البيانات");
             }
         }
         [HttpGet("get-by-id/{id}")]
         public async Task<IActionResult> getById(int id)
         {
+
             try
             {
                 var product = await work.productRepositry.GetByIdAsync(id,

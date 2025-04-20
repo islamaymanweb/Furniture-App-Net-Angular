@@ -19,6 +19,19 @@ namespace Ecom.API
             // Add services to the container.
             builder.Services.infrastructureConfiguration(builder.Configuration);
             builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+            // CORS configuration
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", policy =>
+                {
+                    policy.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader();
+                });
+            });
+
+
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
@@ -30,8 +43,11 @@ namespace Ecom.API
 
             app.UseHttpsRedirection();
 
-            app.UseAuthorization();
+            app.UseCors("AllowAll");
 
+            // Enable authentication and authorization
+            app.UseAuthentication();
+            app.UseAuthorization();
 
             // Custom exception handling middleware
             app.UseMiddleware<ExceptionsMiddleware>();

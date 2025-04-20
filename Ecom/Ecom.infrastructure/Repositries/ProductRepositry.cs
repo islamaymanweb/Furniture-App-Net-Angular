@@ -30,6 +30,53 @@ namespace Ecom.infrastructure.Repositries
             this.mapper = mapper;
             this.imageManagementService = imageManagementService;
         }
+        //public async Task<IEnumerable<ProductDTO>> GetAllAsync(ProductParams productParams)
+        //{
+        //    var query = context.Products
+        //        .Include(m => m.Category)
+        //        .Include(m => m.Photos)
+        //        .AsNoTracking();
+
+
+
+        //    //filtering by word
+        //    if (!string.IsNullOrEmpty(productParams.Search))
+        //    {
+        //        var searchWords = productParams.Search.Split(' ');
+        //        query = query.Where(m => searchWords.All(word =>
+
+        //        m.Name.ToLower().Contains(word.ToLower()) ||
+        //        m.Description.ToLower().Contains(word.ToLower())
+
+        //        ));
+        //    }
+
+
+
+        //    //filtering by category Id
+        //    if (productParams.CategoryId.HasValue)
+        //        query = query.Where(m => m.CategoryId == productParams.CategoryId);
+
+        //    if (!string.IsNullOrEmpty(productParams.Sort))
+        //    {
+        //        query = productParams.Sort switch
+        //        {
+        //            "PriceAce" => query.OrderBy(m => m.NewPrice),
+        //            "PriceDce" => query.OrderByDescending(m => m.NewPrice),
+        //            _ => query.OrderBy(m => m.Name),
+        //        };
+        //    }
+
+        //    productParams.TotatlCount = query.Count();
+
+        //    query = query.Skip((productParams.pageSize) * (productParams.PageNumber - 1)).Take(productParams.pageSize);
+
+
+        //    var result = mapper.Map<List<ProductDTO>>(query);
+
+        //    return result;
+
+        //}
         public async Task<IEnumerable<ProductDTO>> GetAllAsync(ProductParams productParams)
         {
             var query = context.Products
@@ -37,68 +84,111 @@ namespace Ecom.infrastructure.Repositries
                 .Include(m => m.Photos)
                 .AsNoTracking();
 
-
-
-            //filtering by word
+            // فلترة البحث - تعمل فقط عند وجود نص بحث
             if (!string.IsNullOrEmpty(productParams.Search))
             {
-                var searchWords = productParams.Search.Split(' ');
-                query = query.Where(m => searchWords.All(word =>
-
-                m.Name.ToLower().Contains(word.ToLower()) ||
-                m.Description.ToLower().Contains(word.ToLower())
-
-                ));
+                var searchTerm = productParams.Search.Trim().ToLower();
+                query = query.Where(m =>
+                    m.Name.ToLower().Contains(searchTerm) ||
+                    m.Description.ToLower().Contains(searchTerm));
             }
 
-
-
-            //filtering by category Id
+            // فلترة حسب الفئة
             if (productParams.CategoryId.HasValue)
-                query = query.Where(m => m.CategoryId == productParams.CategoryId);
-
-            if (!string.IsNullOrEmpty(productParams.Sort))
             {
-                query = productParams.Sort switch
-                {
-                    "PriceAce" => query.OrderBy(m => m.NewPrice),
-                    "PriceDce" => query.OrderByDescending(m => m.NewPrice),
-                    _ => query.OrderBy(m => m.Name),
-                };
+                query = query.Where(m => m.CategoryId == productParams.CategoryId);
             }
 
-            productParams.TotatlCount = query.Count();
+            // الترتيب
+            query = productParams.Sort switch
+            {
+                "PriceAce" => query.OrderBy(m => m.NewPrice),
+                "PriceDce" => query.OrderByDescending(m => m.NewPrice),
+                _ => query.OrderBy(m => m.Name) // افتراضي
+            };
 
-            query = query.Skip((productParams.pageSize) * (productParams.PageNumber - 1)).Take(productParams.pageSize);
+            // حساب العدد الكلي قبل الترقيم
+            productParams.TotalCount = await query.CountAsync();
 
+            // تطبيق الترقيم
+            var pagedQuery = query
+                .Skip((productParams.PageNumber - 1) * productParams.PageSize)
+                .Take(productParams.PageSize);
 
-            var result = mapper.Map<List<ProductDTO>>(query);
-
-            return result;
-
+            return await mapper.ProjectTo<ProductDTO>(pagedQuery).ToListAsync();
         }
+        //public async Task<bool> AddAsync(AddProductDTO productDTO)
+        //{
+        //    if (productDTO == null) return false;
+
+        //    var product = mapper.Map<Product>(productDTO);
+
+        //    await context.Products.AddAsync(product);
+        //    await context.SaveChangesAsync();
+
+        //    var ImagePath = await imageManagementService.AddImageAsync(productDTO.Photo, productDTO.Name);
+
+        //    var photo = ImagePath.Select(path => new Photo
+        //    {
+        //        ImageName = path,
+        //        ProductId = product.Id,
+        //    }).ToList();
+        //    await context.Photos.AddRangeAsync(photo);
+        //    await context.SaveChangesAsync();
+        //    return true;
+        //}
+
         public async Task<bool> AddAsync(AddProductDTO productDTO)
         {
-            if (productDTO == null) return false;
-
-            var product = mapper.Map<Product>(productDTO);
-
-            await context.Products.AddAsync(product);
-            await context.SaveChangesAsync();
-
-            var ImagePath = await imageManagementService.AddImageAsync(productDTO.Photo, productDTO.Name);
-
-            var photo = ImagePath.Select(path => new Photo
+            // Early null check
+            if (productDTO?.Photo == null || string.IsNullOrEmpty(productDTO.Name))
             {
-                ImageName = path,
-                ProductId = product.Id,
-            }).ToList();
-            await context.Photos.AddRangeAsync(photo);
-            await context.SaveChangesAsync();
-            return true;
+                return false;
+                // Or consider throwing ArgumentException with specific message
+            }
+
+            try
+            {
+                var product = mapper.Map<Product>(productDTO);
+                if (product == null) return false; // Handle mapping failure
+
+                await context.Products.AddAsync(product);
+                await context.SaveChangesAsync();
+
+                // Handle potential null from service
+                var imagePaths = await imageManagementService.AddImageAsync(productDTO.Photo, productDTO.Name);
+                if (imagePaths == null || !imagePaths.Any())
+                {
+                    // Option 1: Rollback product creation
+                    // context.Products.Remove(product);
+                    // await context.SaveChangesAsync();
+
+                    // Option 2: Continue without images
+                    return true;
+                }
+
+                var photos = imagePaths
+                    .Where(path => !string.IsNullOrEmpty(path)) // Additional safety
+                    .Select(path => new Photo
+                    {
+                        ImageName = path,
+                        ProductId = product.Id,
+                    }).ToList();
+
+                if (photos.Any())
+                {
+                    await context.Photos.AddRangeAsync(photos);
+                    await context.SaveChangesAsync();
+                }
+
+                return true;
+            }
+            catch (Exception ex) // Consider more specific exception handling
+            {
+                // Log the exception
+                return false;
+            }
         }
-
-
         public async Task<bool> UpdateAsync(UpdateProductDTO updateProductDTO)
         {
             if (updateProductDTO is null)
