@@ -1,4 +1,4 @@
-# 🪑 Furniture E-Commerce Website
+# 🪑 Dar Elite -  Furniture E-Commerce Website
 This is a full-featured furniture e-commerce platform built with ASP.NET Core Web API and Angular, designed to deliver a smooth and professional shopping experience.
 
 🌟 Key Features
